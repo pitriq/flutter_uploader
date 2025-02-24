@@ -70,6 +70,9 @@ public class MethodCallHandlerImpl implements MethodCallHandler {
       case "clearUploads":
         clearUploads(call, result);
         break;
+      case "getStatus":
+        getStatus(call, result);
+        break;
       default:
         result.notImplemented();
         break;
@@ -83,6 +86,40 @@ public class MethodCallHandlerImpl implements MethodCallHandler {
     }
 
     result.success(null);
+  }
+
+  private void getStatus(MethodCall call, MethodChannel.Result result) {
+    String taskIdArgument = call.argument("taskId");
+    if (taskIdArgument == null) {
+      result.error("invalid_call", "Invalid taskId call parameter passed", null);
+      return;
+    }
+    UUID taskId = UUID.fromString(taskIdArgument);
+    try {
+      WorkInfo.State state = WorkManager.getInstance(context)
+        .getWorkInfoById(taskId).get().getState();
+      switch (state) {
+        case CANCELLED:
+          result.success(UploadStatus.CANCELED);
+          break;
+        case ENQUEUED:
+          result.success(UploadStatus.ENQUEUED);
+          break;
+        case FAILED:
+          result.success(UploadStatus.FAILED);
+          break;
+        case RUNNING:
+          result.success(UploadStatus.RUNNING);
+          break;
+        case SUCCEEDED:
+          result.success(UploadStatus.COMPLETE);
+          break;
+        default:
+          result.success(UploadStatus.UNDEFINED);
+      }
+    } catch (Exception e) {
+      result.error("task_not_found", "No tasks with the given taskId were found", null);
+    }
   }
 
   private void enqueue(MethodCall call, MethodChannel.Result result) {
